@@ -199,5 +199,10 @@ After finding results, provide a summary including:
 """
 
 
-if __name__ == "__main__":
+def main():
+    """Entry point for the MCP server."""
     mcp.run()
+
+
+if __name__ == "__main__":
+    main()

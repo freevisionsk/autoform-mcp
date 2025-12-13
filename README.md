@@ -13,6 +13,20 @@ Model Context Protocol (MCP) server for the Autoform service from Slovensko.Digi
 
 ## Installation
 
+### From PyPI (recommended)
+
+```bash
+pip install autoform-mcp
+```
+
+Or using uvx to run directly without installation:
+
+```bash
+uvx autoform-mcp
+```
+
+### From source
+
 ```bash
 # Clone the repository
 git clone https://github.com/alhafoudh/autoform-mcp.git
@@ -35,6 +49,13 @@ export AUTOFORM_PRIVATE_ACCESS_TOKEN="your-token-here"
 ### Run the MCP server (STDIO transport)
 
 ```bash
+# If installed from PyPI
+autoform-mcp
+
+# Or using uvx
+uvx autoform-mcp
+
+# Or from source
 uv run python autoform_mcp.py
 ```
 
