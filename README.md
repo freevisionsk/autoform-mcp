@@ -15,6 +15,13 @@ Model Context Protocol (MCP) server for the Autoform service from Slovensko.Digi
 
 The easiest way to use Autoform MCP is through our hosted version at `https://autoform.fastmcp.app/mcp` using Streamable HTTP mode. No installation required.
 
+### Getting Your API Token
+
+To use the Autoform API, you need a private access token:
+
+1. Register for **paid access** at [Slovensko.Digital Autoform](https://ekosystem.slovensko.digital/sluzby/autoform/)
+2. After registration, you'll receive your private access token
+
 ### Authentication
 
 Pass your Autoform API token using one of these methods (in priority order):
@@ -53,6 +60,16 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
   }
 }
 ```
+
+### Make.com Integration (Hosted)
+
+You can use the Autoform MCP server in [Make.com](https://www.make.com/) (formerly Integromat) using the **MCP Client - Call a tool** app:
+
+1. Add the **MCP Client - Call a tool** module to your scenario
+2. Create a new MCP server connection with these settings:
+   - **URL**: `https://autoform.fastmcp.app/mcp`
+   - **API key / Access token**: Your private access token from [Slovensko.Digital Autoform](https://ekosystem.slovensko.digital/sluzby/autoform/)
+3. Select the `query_corporate_bodies` tool and configure your query parameters
 
 ---
 
