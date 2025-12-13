@@ -59,12 +59,32 @@ class SearchResult(BaseModel):
     count: int = Field(0, description="Number of results returned")
 
 
-def get_access_token() -> str:
-    """Get the private access token from environment."""
+def get_access_token(ctx: Context | None = None) -> str:
+    """Get the private access token from HTTP header or environment.
+
+    When running in HTTP mode, the token can be passed via the
+    'x-autoform-private-access-token' header. Header takes precedence
+    over the AUTOFORM_PRIVATE_ACCESS_TOKEN environment variable.
+    """
+    # Try to get token from HTTP header first (when running in HTTP mode)
+    if ctx is not None:
+        try:
+            request = ctx.request_context.request
+            if hasattr(request, "headers"):
+                header_token = request.headers.get("x-autoform-private-access-token")
+                if header_token:
+                    return header_token
+        except (AttributeError, TypeError):
+            # Not in HTTP mode or headers not available
+            pass
+
+    # Fall back to environment variable
     token = os.environ.get("AUTOFORM_PRIVATE_ACCESS_TOKEN")
     if not token:
         raise ValueError(
-            "AUTOFORM_PRIVATE_ACCESS_TOKEN environment variable is not set. "
+            "AUTOFORM_PRIVATE_ACCESS_TOKEN not found. "
+            "Either set the environment variable or pass via "
+            "'x-autoform-private-access-token' HTTP header. "
             "Get your token from https://ekosystem.slovensko.digital/"
         )
     return token
@@ -151,7 +171,7 @@ The search matches from the beginning of the field value."""
     """
     await ctx.info(f"Querying corporate bodies: {query}")
 
-    token = get_access_token()
+    token = get_access_token(ctx)
 
     params = {
         "q": query,
@@ -170,9 +190,12 @@ The search matches from the beginning of the field value."""
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
-            sanitized_url = sanitize_url(e.request.url)
+            try:
+                error_message = e.response.json().get("message", e.response.text)
+            except Exception:
+                error_message = e.response.text
             raise RuntimeError(
-                f"API request failed: HTTP {e.response.status_code} for {sanitized_url}"
+                f"API request failed: HTTP {e.response.status_code}: {error_message}"
             ) from None
         data = response.json()
 

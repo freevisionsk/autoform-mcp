@@ -29,6 +29,76 @@ class TestGetAccessToken:
         with pytest.raises(ValueError, match="AUTOFORM_PRIVATE_ACCESS_TOKEN"):
             get_access_token()
 
+    def test_header_takes_precedence_over_env(self, monkeypatch):
+        """Should use HTTP header token when both header and env are set."""
+        monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "env-token")
+
+        mock_request = MagicMock()
+        mock_request.headers = {"x-autoform-private-access-token": "header-token"}
+
+        mock_request_context = MagicMock()
+        mock_request_context.request = mock_request
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context = mock_request_context
+
+        assert get_access_token(mock_ctx) == "header-token"
+
+    def test_header_works_without_env(self, monkeypatch):
+        """Should use HTTP header token when env is not set."""
+        monkeypatch.delenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", raising=False)
+
+        mock_request = MagicMock()
+        mock_request.headers = {"x-autoform-private-access-token": "header-token"}
+
+        mock_request_context = MagicMock()
+        mock_request_context.request = mock_request
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context = mock_request_context
+
+        assert get_access_token(mock_ctx) == "header-token"
+
+    def test_falls_back_to_env_when_header_missing(self, monkeypatch):
+        """Should fall back to env when header is not present."""
+        monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "env-token")
+
+        mock_request = MagicMock()
+        mock_request.headers = {}
+
+        mock_request_context = MagicMock()
+        mock_request_context.request = mock_request
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context = mock_request_context
+
+        assert get_access_token(mock_ctx) == "env-token"
+
+    def test_falls_back_to_env_when_no_request_context(self, monkeypatch):
+        """Should fall back to env when context has no request_context."""
+        monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "env-token")
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context = None
+
+        assert get_access_token(mock_ctx) == "env-token"
+
+    def test_raises_when_no_header_and_no_env(self, monkeypatch):
+        """Should raise ValueError when neither header nor env is set."""
+        monkeypatch.delenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", raising=False)
+
+        mock_request = MagicMock()
+        mock_request.headers = {}
+
+        mock_request_context = MagicMock()
+        mock_request_context.request = mock_request
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context = mock_request_context
+
+        with pytest.raises(ValueError, match="AUTOFORM_PRIVATE_ACCESS_TOKEN"):
+            get_access_token(mock_ctx)
+
 
 class TestSanitizeUrl:
     """Tests for URL sanitization to prevent token leakage."""
@@ -264,21 +334,20 @@ class TestQueryCorporateBodies:
             call_args = mock_client.get.call_args
             assert call_args.kwargs["params"]["filter"] == "active"
 
-    async def test_http_error_does_not_leak_token(self, monkeypatch):
-        """HTTP errors should not expose the access token."""
+    async def test_http_error_shows_message_from_json(self, monkeypatch):
+        """HTTP errors should display the message from JSON response body."""
         from fastmcp import Client
         from fastmcp.exceptions import ToolError
 
-        monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "super-secret-token-12345")
+        monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "test-token")
 
         mock_request = MagicMock()
-        mock_request.url = (
-            "https://api.example.com/search?q=test"
-            "&private_access_token=super-secret-token-12345"
-        )
+        mock_request.url = "https://api.example.com/search?q=test"
 
         mock_response = MagicMock()
         mock_response.status_code = 400
+        mock_response.json.return_value = {"message": "Invalid query format"}
+        mock_response.text = '{"message": "Invalid query format"}'
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
             "Bad Request",
             request=mock_request,
@@ -297,10 +366,45 @@ class TestQueryCorporateBodies:
                         "query_corporate_bodies", {"query": "name:Test"}
                     )
 
-                # The error message should NOT contain the token
                 error_message = str(exc_info.value)
-                assert "super-secret-token-12345" not in error_message
-                assert "private_access_token=***" in error_message
+                assert "HTTP 400" in error_message
+                assert "Invalid query format" in error_message
+
+    async def test_http_error_falls_back_to_text(self, monkeypatch):
+        """HTTP errors should fall back to response text if JSON parsing fails."""
+        from fastmcp import Client
+        from fastmcp.exceptions import ToolError
+
+        monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "test-token")
+
+        mock_request = MagicMock()
+        mock_request.url = "https://api.example.com/search?q=test"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.json.side_effect = ValueError("Invalid JSON")
+        mock_response.text = "Internal Server Error"
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Server Error",
+            request=mock_request,
+            response=mock_response,
+        )
+
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("autoform_mcp.httpx.AsyncClient", return_value=mock_client):
+            async with Client(mcp) as client:
+                with pytest.raises(ToolError) as exc_info:
+                    await client.call_tool(
+                        "query_corporate_bodies", {"query": "name:Test"}
+                    )
+
+                error_message = str(exc_info.value)
+                assert "HTTP 500" in error_message
+                assert "Internal Server Error" in error_message
 
 
 class TestAPIResource:
