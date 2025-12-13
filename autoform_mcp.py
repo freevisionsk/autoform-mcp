@@ -60,17 +60,24 @@ class SearchResult(BaseModel):
 
 
 def get_access_token(ctx: Context | None = None) -> str:
-    """Get the private access token from HTTP header or environment.
+    """Get the private access token from HTTP headers or environment.
 
-    When running in HTTP mode, the token can be passed via the
-    'x-autoform-private-access-token' header. Header takes precedence
-    over the AUTOFORM_PRIVATE_ACCESS_TOKEN environment variable.
+    Token lookup priority (first match wins):
+    1. Authorization: Bearer <token> header
+    2. x-autoform-private-access-token header
+    3. AUTOFORM_PRIVATE_ACCESS_TOKEN environment variable
     """
-    # Try to get token from HTTP header first (when running in HTTP mode)
+    # Try to get token from HTTP headers first (when running in HTTP mode)
     if ctx is not None:
         try:
             request = ctx.request_context.request
             if hasattr(request, "headers"):
+                # Priority 1: Authorization Bearer header
+                auth_header = request.headers.get("authorization")
+                if auth_header and auth_header.lower().startswith("bearer "):
+                    return auth_header[7:]  # Strip "Bearer " prefix
+
+                # Priority 2: x-autoform-private-access-token header
                 header_token = request.headers.get("x-autoform-private-access-token")
                 if header_token:
                     return header_token
@@ -78,13 +85,14 @@ def get_access_token(ctx: Context | None = None) -> str:
             # Not in HTTP mode or headers not available
             pass
 
-    # Fall back to environment variable
+    # Priority 3: Fall back to environment variable
     token = os.environ.get("AUTOFORM_PRIVATE_ACCESS_TOKEN")
     if not token:
         raise ValueError(
             "AUTOFORM_PRIVATE_ACCESS_TOKEN not found. "
-            "Either set the environment variable or pass via "
-            "'x-autoform-private-access-token' HTTP header. "
+            "Pass token via 'Authorization: Bearer <token>' header, "
+            "'x-autoform-private-access-token' header, or set the "
+            "AUTOFORM_PRIVATE_ACCESS_TOKEN environment variable. "
             "Get your token from https://ekosystem.slovensko.digital/"
         )
     return token

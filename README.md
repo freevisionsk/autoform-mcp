@@ -11,7 +11,52 @@ Model Context Protocol (MCP) server for the Autoform service from Slovensko.Digi
 - Filter results to show only active (non-terminated) entities
 - Returns detailed company information including addresses and tax IDs
 
-## Installation
+## Quick Start (Hosted Version)
+
+The easiest way to use Autoform MCP is through our hosted version at `https://autoform.fastmcp.app/mcp` using Streamable HTTP mode. No installation required.
+
+### Authentication
+
+Pass your Autoform API token using one of these methods (in priority order):
+
+1. **Authorization header** (recommended): `Authorization: Bearer <token>`
+2. **Custom header**: `x-autoform-private-access-token: <token>`
+
+### Privacy Notice
+
+**Your tokens are safe with us.** We take privacy seriously:
+- Your API tokens are **never stored** on our servers
+- Tokens are only used to authenticate requests to the Autoform API on your behalf
+- We do not log, track, or exploit your credentials in any way
+- All communication is encrypted via HTTPS
+
+### Claude Code Integration (Hosted)
+
+```bash
+claude mcp add autoform --transport http --header "Authorization: Bearer your-token-here" https://autoform.fastmcp.app/mcp
+```
+
+### Claude Desktop Integration (Hosted)
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "autoform": {
+      "type": "streamable-http",
+      "url": "https://autoform.fastmcp.app/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token-here"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Self-Hosted Installation
 
 ### From PyPI (recommended)
 
@@ -106,7 +151,7 @@ query_corporate_bodies(query="name:Test", active_only=True)  # Only active compa
 
 Returns information about the Autoform API and this MCP server.
 
-## Claude Code Integration
+## Claude Code Integration (Self-Hosted)
 
 ### Using uvx (recommended)
 
@@ -124,7 +169,7 @@ If you've cloned the repository:
 claude mcp add autoform -e AUTOFORM_PRIVATE_ACCESS_TOKEN=your-token-here -- uv run python /path/to/autoform_mcp.py
 ```
 
-## Claude Desktop Integration
+## Claude Desktop Integration (Self-Hosted)
 
 Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 

@@ -16,10 +16,16 @@ from autoform_mcp import (
 
 
 class TestGetAccessToken:
-    """Tests for access token retrieval."""
+    """Tests for access token retrieval.
 
-    def test_returns_token_when_set(self, monkeypatch):
-        """Should return token from environment."""
+    Token lookup priority:
+    1. Authorization: Bearer <token> header
+    2. x-autoform-private-access-token header
+    3. AUTOFORM_PRIVATE_ACCESS_TOKEN environment variable
+    """
+
+    def test_returns_token_from_env(self, monkeypatch):
+        """Should return token from environment when no headers present."""
         monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "test-token")
         assert get_access_token() == "test-token"
 
@@ -29,8 +35,41 @@ class TestGetAccessToken:
         with pytest.raises(ValueError, match="AUTOFORM_PRIVATE_ACCESS_TOKEN"):
             get_access_token()
 
-    def test_header_takes_precedence_over_env(self, monkeypatch):
-        """Should use HTTP header token when both header and env are set."""
+    def test_authorization_bearer_takes_highest_priority(self, monkeypatch):
+        """Authorization Bearer header should take precedence over all others."""
+        monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "env-token")
+
+        mock_request = MagicMock()
+        mock_request.headers = {
+            "authorization": "Bearer auth-token",
+            "x-autoform-private-access-token": "custom-header-token",
+        }
+
+        mock_request_context = MagicMock()
+        mock_request_context.request = mock_request
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context = mock_request_context
+
+        assert get_access_token(mock_ctx) == "auth-token"
+
+    def test_authorization_bearer_case_insensitive(self, monkeypatch):
+        """Authorization Bearer header should be case-insensitive."""
+        monkeypatch.delenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", raising=False)
+
+        mock_request = MagicMock()
+        mock_request.headers = {"authorization": "BEARER auth-token"}
+
+        mock_request_context = MagicMock()
+        mock_request_context.request = mock_request
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context = mock_request_context
+
+        assert get_access_token(mock_ctx) == "auth-token"
+
+    def test_custom_header_takes_precedence_over_env(self, monkeypatch):
+        """x-autoform-private-access-token should take precedence over env."""
         monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "env-token")
 
         mock_request = MagicMock()
@@ -44,8 +83,8 @@ class TestGetAccessToken:
 
         assert get_access_token(mock_ctx) == "header-token"
 
-    def test_header_works_without_env(self, monkeypatch):
-        """Should use HTTP header token when env is not set."""
+    def test_custom_header_works_without_env(self, monkeypatch):
+        """Should use x-autoform-private-access-token when env is not set."""
         monkeypatch.delenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", raising=False)
 
         mock_request = MagicMock()
@@ -59,8 +98,8 @@ class TestGetAccessToken:
 
         assert get_access_token(mock_ctx) == "header-token"
 
-    def test_falls_back_to_env_when_header_missing(self, monkeypatch):
-        """Should fall back to env when header is not present."""
+    def test_falls_back_to_env_when_headers_missing(self, monkeypatch):
+        """Should fall back to env when no headers are present."""
         monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "env-token")
 
         mock_request = MagicMock()
@@ -83,8 +122,8 @@ class TestGetAccessToken:
 
         assert get_access_token(mock_ctx) == "env-token"
 
-    def test_raises_when_no_header_and_no_env(self, monkeypatch):
-        """Should raise ValueError when neither header nor env is set."""
+    def test_raises_when_no_headers_and_no_env(self, monkeypatch):
+        """Should raise ValueError when neither headers nor env is set."""
         monkeypatch.delenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", raising=False)
 
         mock_request = MagicMock()
@@ -98,6 +137,21 @@ class TestGetAccessToken:
 
         with pytest.raises(ValueError, match="AUTOFORM_PRIVATE_ACCESS_TOKEN"):
             get_access_token(mock_ctx)
+
+    def test_ignores_non_bearer_authorization(self, monkeypatch):
+        """Should ignore Authorization header if not Bearer type."""
+        monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "env-token")
+
+        mock_request = MagicMock()
+        mock_request.headers = {"authorization": "Basic abc123"}
+
+        mock_request_context = MagicMock()
+        mock_request_context.request = mock_request
+
+        mock_ctx = MagicMock()
+        mock_ctx.request_context = mock_request_context
+
+        assert get_access_token(mock_ctx) == "env-token"
 
 
 class TestSanitizeUrl:
