@@ -1,3 +1,15 @@
 [tools]
 python = "3.12.11"
 uv = "latest"
+
+[tasks.dev]
+description = "Run MCP server in development mode with inspector"
+run = "uv run fastmcp dev autoform_mcp.py"
+
+[tasks.run]
+description = "Run MCP server locally (STDIO transport)"
+run = "uv run python autoform_mcp.py"
+
+[tasks.test]
+description = "Run tests"
+run = "uv run pytest -v"

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__context7",
+      "WebFetch(domain:ekosystem.slovensko.digital)"
+    ]
+  }
+}
