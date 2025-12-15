@@ -183,7 +183,7 @@ claude mcp add autoform -e AUTOFORM_PRIVATE_ACCESS_TOKEN=your-token-here -- uvx 
 If you've cloned the repository:
 
 ```bash
-claude mcp add autoform -e AUTOFORM_PRIVATE_ACCESS_TOKEN=your-token-here -- uv run python /path/to/autoform_mcp.py
+claude mcp add autoform -e AUTOFORM_PRIVATE_ACCESS_TOKEN=your-token-here -- uv run --directory /path/to/autoform-mcp python autoform_mcp.py
 ```
 
 ## Claude Desktop Integration (Self-Hosted)
@@ -213,7 +213,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
   "mcpServers": {
     "autoform": {
       "command": "uv",
-      "args": ["run", "python", "/path/to/autoform_mcp.py"],
+      "args": ["run", "--directory", "/path/to/autoform-mcp", "python", "autoform_mcp.py"],
       "env": {
         "AUTOFORM_PRIVATE_ACCESS_TOKEN": "your-token-here"
       }
