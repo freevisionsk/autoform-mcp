@@ -213,7 +213,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
   "mcpServers": {
     "autoform": {
       "command": "uv",
-      "args": ["run", "python", "/path/to/autoform-mcp.py"],
+      "args": ["run", "python", "/path/to/autoform_mcp.py"],
       "env": {
         "AUTOFORM_PRIVATE_ACCESS_TOKEN": "your-token-here"
       }
