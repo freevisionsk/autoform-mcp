@@ -5,14 +5,49 @@ Provides tools for searching Slovak corporate bodies (companies, organizations)
 by name or registration number (IČO/CIN).
 """
 
+from __future__ import annotations
+
+import inspect
 import os
 import re
+from typing import Any, Dict
 
 import httpx
 from fastmcp import FastMCP
 from fastmcp.server.context import Context
 from fastmcp.server.dependencies import CurrentContext
-from pydantic import BaseModel, Field
+from fastmcp.tools.tool import FunctionTool
+from pydantic import BaseModel, ConfigDict, Field
+
+# Monkey-patch FunctionTool.run to ignore extra parameters
+_original_run = FunctionTool.run
+
+
+async def _run_with_arg_sanitizer(
+    self: FunctionTool, arguments: Dict[str, Any]
+) -> Any:
+    """
+    Sanitize tool arguments before FastMCP does its strict parameter validation.
+    Drops keys that are not in the underlying function's signature
+    (e.g., sessionId, toolCallId, chatInput, action).
+    """
+    # if not a dict, just pass through
+    if not isinstance(arguments, dict):
+        return await _original_run(self, arguments)
+
+    # Cache allowed parameter names per tool
+    if not hasattr(self, "_allowed_parameter_names"):
+        signature = inspect.signature(self.fn)
+        self._allowed_parameter_names = tuple(signature.parameters.keys())
+
+    allowed = getattr(self, "_allowed_parameter_names")
+    sanitized = {k: v for k, v in arguments.items() if k in allowed}
+
+    # Call the original FastMCP logic with the cleaned args
+    return await _original_run(self, sanitized)
+
+
+FunctionTool.run = _run_with_arg_sanitizer  # type: ignore[method-assign]
 
 API_BASE_URL = "https://autoform.ekosystem.slovensko.digital/api"
 
