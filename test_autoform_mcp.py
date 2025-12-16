@@ -461,6 +461,50 @@ class TestQueryCorporateBodies:
                 assert "Internal Server Error" in error_message
 
 
+class TestArgumentSanitization:
+    """Tests for argument sanitization before validation."""
+
+    async def test_extra_arguments_are_ignored(self, monkeypatch):
+        """Should ignore extra arguments like sessionId, toolCallId, etc."""
+        from fastmcp import Client
+
+        monkeypatch.setenv("AUTOFORM_PRIVATE_ACCESS_TOKEN", "test-token")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = [
+            {"cin": "12345678", "name": "Test Company"}
+        ]
+        mock_response.raise_for_status = MagicMock()
+
+        mock_client = MagicMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("autoform_mcp.httpx.AsyncClient", return_value=mock_client):
+            async with Client(mcp) as client:
+                # Pass extra arguments that should be stripped
+                result = await client.call_tool(
+                    "query_corporate_bodies",
+                    {
+                        "query": "name:Test",
+                        "sessionId": "session-123",
+                        "toolCallId": "call-456",
+                        "chatInput": "some input",
+                        "action": "search",
+                    },
+                )
+
+            # Should succeed without validation errors
+            assert result is not None
+            assert result.data is not None
+
+            # Verify the API was called with only valid params
+            mock_client.get.assert_called_once()
+            call_args = mock_client.get.call_args
+            assert call_args.kwargs["params"]["q"] == "name:Test"
+
+
 class TestAPIResource:
     """Tests for API info resource."""
 
